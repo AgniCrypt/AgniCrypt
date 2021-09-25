@@ -219,9 +219,11 @@ def add_to_watchlist(user_id, crypto_name):
     mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
     mycursor = mydb.cursor()
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
-    watch = mycursor.fetchall()[0][0] + crypto_name + ' '
-    mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watch) + "WHERE (USERNAME = '{0}')".format(user_id))
-    mydb.commit()
+    watch = mycursor.fetchall()[0][0] 
+    if crypto_name not in watch:
+        watch += crypto_name + ' '
+        mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watch) + "WHERE (USERNAME = '{0}')".format(user_id))
+        mydb.commit()
 
 
 def watchlist(user_id):
@@ -277,6 +279,9 @@ def actions(user_id):
             crypto = name_format(input('Enter the Name of Cryptocurrency --> '))
             if get_data(crypto):    
                 buy_crypto(user_id, crypto)
+                watch = input('Do you want to Add this currency to Watchlist(Y/N) --> ')
+                if watch in 'yY':
+                    add_to_watchlist(user_id, crypto)
             else:
                 print('Sorry, we could not find cryptocurrency with this name. Please re-check the spelling' )
         
