@@ -214,14 +214,14 @@ def predict(crypto_currency):
     plt.show()        
   
 
-def add_to_watchlist(user_id, crypto_name):
+def add_to_watchlist(user_id, crypto):
     
     mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
     mycursor = mydb.cursor()
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watch = mycursor.fetchall()[0][0] 
-    if crypto_name not in watch:
-        watch += crypto_name + ' '
+    if crypto not in watch:
+        watch += crypto + ' '
         mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watch) + "WHERE (USERNAME = '{0}')".format(user_id))
         mydb.commit()
 
@@ -279,9 +279,14 @@ def actions(user_id):
             crypto = name_format(input('Enter the Name of Cryptocurrency --> '))
             if get_data(crypto):    
                 buy_crypto(user_id, crypto)
-                watch = input('Do you want to Add this currency to Watchlist(Y/N) --> ')
-                if watch in 'yY':
-                    add_to_watchlist(user_id, crypto)
+                mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
+                mycursor = mydb.cursor()
+                mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
+                watch = mycursor.fetchall()[0][0] 
+                if crypto not in watch:
+                    watch = input('Do you want to Add this currency to Watchlist(Y/N) --> ')
+                    if watch in 'yY':
+                        add_to_watchlist(user_id, crypto)
             else:
                 print('Sorry, we could not find cryptocurrency with this name. Please re-check the spelling' )
         
@@ -296,10 +301,14 @@ def actions(user_id):
                 buy = input('Do you want to Buy this currency(Y/N) --> ')
                 if buy in 'Yy':
                     buy_crypto(user_id, crypto)
-                
-                watch = input('Do you want to Add this currency to Watchlist(Y/N) --> ')
-                if watch in 'yY':
-                    add_to_watchlist(user_id, crypto)
+                mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
+                mycursor = mydb.cursor()
+                mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
+                watch = mycursor.fetchall()[0][0] 
+                if crypto not in watch:
+                    watch = input('Do you want to Add this currency to Watchlist(Y/N) --> ')
+                    if watch in 'yY':
+                        add_to_watchlist(user_id, crypto)
         
             
        
