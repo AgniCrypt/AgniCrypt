@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 import mysql.connector
 
 
-def check(email):   
+def email_check(email):   
     regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
     mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
     mycursor = mydb.cursor()
@@ -49,14 +49,14 @@ def sign_up():
     mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
     mycursor = mydb.cursor()
     email = input('Enter your E-Mail --> ')
-    f = check(email)
+    f = email_check(email)
     while f:
         print(f)
         if f == 1:     
             email = input('Please Enter Valid E-Mail --> ')
         elif f == 2:
             email = input('This Email is Already Registered, Please Enter Another E-Mail --> ')
-        f = check(email)
+        f = email_check(email)
         
     dob = input('Enter your Date of Birth (yyyy/mm/dd) --> ')
     username = input('Create a username --> ')
@@ -80,7 +80,8 @@ def sign_up():
             
         except mysql.connector.errors.IntegrityError:
             user_data[2] = input('This Username is not available, Please Create Some Other --> ')            
-            
+            user_data[3] = input('Create a password --> ')
+    
     return user_data[2]
   
 
@@ -244,7 +245,7 @@ def buy_crypto(user_id, crypto):
     print ('Your balance is -', val)
     
     price = eval(get_data(crypto)[0][1:].replace(',', ''))
-    print('Price of each coin is - ', price)
+    print('Current Price of each coin is - ', price)
     qty = abs(eval(input('Enter Number of Coins you want to Buy --> ')))
     dt = str(datetime.datetime.now()).split()
     
@@ -261,8 +262,75 @@ def buy_crypto(user_id, crypto):
         mydb.commit() 
      
     else:
-        print('Enter some quantity if you want to buy')
+        print('No coins Bought')
+
+
+def sell_crypto(user_id, crypto):
+    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
+    mycursor = mydb.cursor()
+    mycursor.execute("SELECT QTY, PRICE FROM TRANSACTIONS WHERE (USERNAME = '{0}'".format(user_id) + "AND CRYPTO_NAME = '{0}')".format(crypto))
+    dets = mycursor.fetchall()
+    if dets:
+        bq = 0
+        bp = 0
+        sq = 0
+        sp = 0
+        f = input('Do you want to see History of your transactions of ' + crypto + '(Y/N) --> ')
+        if f in 'yY':
+            f = 1
+        else: 
+            f = 0
+            
+        for i in dets:
+            q, p = i
+            if q > 0:
+                if f:
+                    print('Bought Quantity:', q, 'Bought Price:', p)
+                bq += q
+                bp += p * q
+                
+            if q < 0:
+                if f:
+                    print('Sold Quantity:', -q, 'Selling Price:', p)
+                sq += q
+                sp -= p * q
+            
         
+        price = eval(get_data(crypto)[0][1:].replace(',', ''))    
+        mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
+        val = float(mycursor.fetchall()[0][0])
+        print()
+        print('Total Bought Quantity:', bq)
+        print('Total Sold Quantity:', -sq)
+        print('Coins Left:', bq + sq)
+        print('Total Money Invested:', bp)
+        print('Money Received on Selling:', sp)
+        print('Average Bought Price:', bp/bq)
+        if sq:
+            print('Average Sell Price:', -sp/sq)
+        else:
+            print('Average Sell Price:', 0)
+        print('Current Price:', price)
+        print('Your Current Balance:', val)
+        
+        qty = abs(eval(input('Enter the Amount of Coins you want to Sell --> ')))       
+        if qty > bq + sq:
+            print('You cannot sell more coins than you have')
+        
+        elif qty == 0:
+            print('No Coins sold')
+            
+        else:
+             balance = val + qty * price
+             dt = str(datetime.datetime.now()).split()
+             print('Your balance is -', balance)
+             mycursor.execute("UPDATE USERBASE SET BALANCE = {0} ".format(balance) + "WHERE (USERNAME = '{0}')".format(user_id))
+             values = (user_id, crypto, -qty, price, dt[0].replace('-','/'), dt[1][:8])  
+             mycursor.execute('INSERT INTO TRANSACTIONS VALUES{0}'.format(values))
+             mydb.commit() 
+    else:
+       print('You do not have any coins of', crypto)
+                
 def actions(user_id):
     print('Please Enter A Valid Number from the List')
     buy = ''
@@ -273,10 +341,10 @@ def actions(user_id):
             watchlist(user_id)
         
         if act == 2 :
-            pass
-        
+             pass
+             
         if act == 3:
-            crypto = name_format(input('Enter the Name of Cryptocurrency --> '))
+            crypto = name_format(input('Enter the Name of Cryptocurrency you want to Buy --> '))
             if get_data(crypto):    
                 buy_crypto(user_id, crypto)
                 mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
@@ -291,7 +359,9 @@ def actions(user_id):
                 print('Sorry, we could not find cryptocurrency with this name. Please re-check the spelling' )
         
         if act == 4:
-            pass
+            crypto = name_format(input('Enter the Name of Cryptocurrency you want to Sell --> '))
+            if get_data(crypto):
+                sell_crypto(user_id, crypto)
         
         if act == 5:
             crypto = name_format(input('Enter the Name of Cryptocurrency --> '))
