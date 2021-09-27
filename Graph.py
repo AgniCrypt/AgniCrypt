@@ -29,6 +29,7 @@ def animate(i):
     x_vals.append(datetime.now())
     y_vals.append(get_crypto_price('BTC','USD'))
 
+    plt.cla()
     plt.title(get_crypto_name('BTC')+'Price Live Plotting')
     plt.xlabel('Date')
     plt.ylabel('Price(USD)')
