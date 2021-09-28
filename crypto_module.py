@@ -9,12 +9,12 @@ import datetime
 import pandas
 from bs4 import BeautifulSoup
 import mysql.connector
-
+mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
+mycursor = mydb.cursor(buffered = True)
 
 def email_check(email):   
     regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
-    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-    mycursor = mydb.cursor()
+
     mycursor.execute("SELECT USERNAME FROM USERBASE WHERE (EMAIL = '{0}')".format(email))
     taken = mycursor.fetchall()
     f = 0
@@ -26,10 +26,6 @@ def email_check(email):
 
         
 def sign_in():
-    
-    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-    mycursor = mydb.cursor()
-    
     user_id = input('Enter E-Mail/Username --> ')
     password = input('Enter Password --> ')  
     mycursor.execute("SELECT PASSWORD, USERNAME FROM USERBASE WHERE (EMAIL = '{0}') OR (USERNAME = '{0}')".format(user_id))
@@ -45,9 +41,6 @@ def sign_in():
             
         
 def sign_up():
-    
-    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-    mycursor = mydb.cursor()
     email = input('Enter your E-Mail --> ')
     f = email_check(email)
     while f:
@@ -112,11 +105,11 @@ def show_data(crypto_name):
         
         print('Cryptocurrency:', crypto_name)
         print('Current Price: ', x[0])
-        print('Price changed: ', x[1][0],'/', x[1][1])
+        print('Price Change: ', x[1][0],'/', x[1][1])
         print('24h Low: ', x[2][0])
-        print('24h high: ',x[2][1])
+        print('24h High: ',x[2][1])
         print('Trading Volume: ', x[3][0], '/', x[3][1])
-        print('Market Cap: ', '$' + str(eval(x[3][0][1:].replace(',', ''))/eval(x[4].replace(',', ''))))
+        print('Market Capitalization: ', '$' , eval(x[3][0][1:].replace(',', ''))/eval(x[4].replace(',', '')))
         print('Market Dominance: ', x[5])
         print('Market rank: ', x[6])
         print()
@@ -126,6 +119,21 @@ def show_data(crypto_name):
         print("Sorry, we couldn't find cryptocurrency with this name. Please re-check the spelling.")
 
 
+def user_data(user_id, crypto):
+    mycursor.execute("SELECT * FROM PORTFOLIO WHERE (USER_ID = '{0}'".format(user_id) + " AND CRYPTO_NAME = '{0}')".format(crypto))
+    data = mycursor.fetchall()
+    if data:    
+        data = data[0]
+        print('CryptoCurrency Name:', data[1])
+        print('Total Bought Quantity:', data[2])
+        print('Total Sold Quantity:', data[3])
+        print('Coins Left:', data[4])
+        print('Average Bought Price:', data[5])
+        print('Average Sell Price:', data[6])
+        print('Average Earnings on coins sold:', data[7])
+    return data
+        
+        
 def predict(crypto_currency):    
     
     import numpy as np
@@ -216,9 +224,6 @@ def predict(crypto_currency):
   
 
 def add_to_watchlist(user_id, crypto):
-    
-    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-    mycursor = mydb.cursor()
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watch = mycursor.fetchall()[0][0] 
     if crypto not in watch:
@@ -228,8 +233,6 @@ def add_to_watchlist(user_id, crypto):
 
 
 def watchlist(user_id):
-    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-    mycursor = mydb.cursor()
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0].split()
     
@@ -237,118 +240,105 @@ def watchlist(user_id):
         show_data(i)
 
 
-def buy_crypto(user_id, crypto):
-    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-    mycursor = mydb.cursor()
+def portfolio(user_id):
     mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     val = float(mycursor.fetchall()[0][0])
     print ('Your balance is -', val)
+    print()
+    mycursor.execute("SELECT CRYPTO_NAME FROM PORTFOLIO WHERE (USER_ID = '{0}')".format(user_id))
+    crypto_list = mycursor.fetchall()
+    if crypto_list:
+        for crypto in crypto_list:
+            user_data(user_id, crypto[0])
+            print()
+
+def buy_crypto(user_id, crypto):
     
+    mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
+    val = float(mycursor.fetchall()[0][0])
+    print ('Your balance is -', val)
     price = eval(get_data(crypto)[0][1:].replace(',', ''))
     print('Current Price of each coin is - ', price)
+    data = user_data(user_id, crypto)
     qty = abs(eval(input('Enter Number of Coins you want to Buy --> ')))
     dt = str(datetime.datetime.now()).split()
-    
     if qty:
         balance = val - qty * price
         while balance < 0:
             qty = eval(input('You have low balance, buy lesser quantity --> '))
             balance = val - qty * price
         print('Your balance is -', balance)
-        
         mycursor.execute("UPDATE USERBASE SET BALANCE = {0} ".format(balance) + "WHERE (USERNAME = '{0}')".format(user_id))
+        mydb.commit()
+        if data:
+            buy_qty, cur_qty, avg_buy_price = float(data[2]) + qty, float(data[4]) + qty, float(data[5]*data[2]) + qty*price
+            avg_buy_price /= buy_qty 
+            mycursor.execute("UPDATE PORTFOLIO SET TOTAL_BOUGHT = {0}, ".format(buy_qty) + "CURRENT_QTY = {0}, ".format(cur_qty) + "AVG_BUY_PRICE = {0} ".format(avg_buy_price) + "WHERE (USER_ID = '{0}' ".format(user_id) + "AND CRYPTO_NAME = '{0})'".format(crypto))
+            mydb.commit()
+    
+        else:
+            values = (user_id, crypto, qty, 0, qty, price, 0, 0)
+            mycursor.execute('INSERT INTO PORTFOLIO VALUES{0}'.format(values))
+            mydb.commit()
         values = (user_id, crypto, qty, price, dt[0].replace('-','/'), dt[1][:8])  
         mycursor.execute('INSERT INTO TRANSACTIONS VALUES{0}'.format(values))
         mydb.commit() 
-     
+         
     else:
         print('No coins Bought')
 
 
 def sell_crypto(user_id, crypto):
-    mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-    mycursor = mydb.cursor()
-    mycursor.execute("SELECT QTY, PRICE FROM TRANSACTIONS WHERE (USERNAME = '{0}'".format(user_id) + "AND CRYPTO_NAME = '{0}')".format(crypto))
-    dets = mycursor.fetchall()
-    if dets:
-        bq = 0
-        bp = 0
-        sq = 0
-        sp = 0
-        f = input('Do you want to see History of your transactions of ' + crypto + '(Y/N) --> ')
-        if f in 'yY':
-            f = 1
-        else: 
-            f = 0
-            
-        for i in dets:
-            q, p = i
-            if q > 0:
-                if f:
-                    print('Bought Quantity:', q, 'Bought Price:', p)
-                bq += q
-                bp += p * q
-                
-            if q < 0:
-                if f:
-                    print('Sold Quantity:', -q, 'Selling Price:', p)
-                sq += q
-                sp -= p * q
-            
-        
-        price = eval(get_data(crypto)[0][1:].replace(',', ''))    
-        mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
-        val = float(mycursor.fetchall()[0][0])
-        print()
-        print('Total Bought Quantity:', bq)
-        print('Total Sold Quantity:', -sq)
-        print('Coins Left:', bq + sq)
-        print('Total Money Invested:', bp)
-        print('Money Received on Selling:', sp)
-        print('Average Bought Price:', bp/bq)
-        if sq:
-            print('Average Sell Price:', -sp/sq)
-        else:
-            print('Average Sell Price:', 0)
-        print('Current Price:', price)
-        print('Your Current Balance:', val)
-        
-        qty = abs(eval(input('Enter the Amount of Coins you want to Sell --> ')))       
-        if qty > bq + sq:
+   
+    price = eval(get_data(crypto)[0][1:].replace(',', ''))    
+    mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
+    val = float(mycursor.fetchall()[0][0])
+    print('Current Price:', price)
+    print('Your Current Balance:', val)
+    
+    data = user_data(user_id, crypto)
+    if data:
+        sold_qty, cur_qty, avg_buy_price, avg_sell_price = float(data[3]), float(data[4]), float(data[5]), float(data[6])
+        qty = abs(eval(input('Enter the Amount of Coins you want to Sell --> ')))   
+        if cur_qty < qty:
             print('You cannot sell more coins than you have')
-        
-        elif qty == 0:
-            print('No Coins sold')
-            
         else:
              balance = val + qty * price
+             cur_qty -= qty
+             avg_sell_price = avg_sell_price*sold_qty + price*qty
+             sold_qty += qty
+             avg_sell_price /= sold_qty
+             earn = (avg_sell_price - avg_buy_price)*sold_qty
              dt = str(datetime.datetime.now()).split()
-             print('Your balance is -', balance)
              mycursor.execute("UPDATE USERBASE SET BALANCE = {0} ".format(balance) + "WHERE (USERNAME = '{0}')".format(user_id))
+             mydb.commit()
              values = (user_id, crypto, -qty, price, dt[0].replace('-','/'), dt[1][:8])  
+             mycursor.execute("UPDATE PORTFOLIO SET TOTAL_SOLD = {0}, ".format(sold_qty) + "CURRENT_QTY = {0}, ".format(cur_qty) + "AVG_SELL_PRICE = {0}, ".format(avg_sell_price) +"EARNINGS = {0} ".format(earn) + "WHERE (USER_ID = '{0}' ".format(user_id) + "AND CRYPTO_NAME = '{0}')".format(crypto))
+             mydb.commit()
              mycursor.execute('INSERT INTO TRANSACTIONS VALUES{0}'.format(values))
-             mydb.commit() 
+             mydb.commit()
+             print('Your balance is:', balance)
+             
     else:
-       print('You do not have any coins of', crypto)
-                
-def actions(user_id):
+        print('You have not Bought this Cryptocurrency')
+
+
+def tasks(user_id):
     print('Please Enter A Valid Number from the List')
     buy = ''
     watch = ''
     try:
-        act = int(input('What action do you want to perform: \n 1. SEE WATCHLIST \n 2. SEE PORTFOLIO \n 3. BUY \n 4. SELL \n 5. SEARCH CRYPTOCURRENCY --> '))
+        act = int(input('What task do you want to perform: \n 1. SEE WATCHLIST \n 2. SEE PORTFOLIO \n 3. BUY \n 4. SELL \n 5. SEARCH CRYPTOCURRENCY \n--> '))
         if act == 1:
             watchlist(user_id)
         
         if act == 2 :
-             pass
+             portfolio(user_id)
              
         if act == 3:
             crypto = name_format(input('Enter the Name of Cryptocurrency you want to Buy --> '))
             if get_data(crypto):    
                 buy_crypto(user_id, crypto)
-                mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-                mycursor = mydb.cursor()
                 mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
                 watch = mycursor.fetchall()[0][0] 
                 if crypto not in watch:
@@ -371,8 +361,7 @@ def actions(user_id):
                 buy = input('Do you want to Buy this currency(Y/N) --> ')
                 if buy in 'Yy':
                     buy_crypto(user_id, crypto)
-                mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
-                mycursor = mydb.cursor()
+                
                 mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
                 watch = mycursor.fetchall()[0][0] 
                 if crypto not in watch:
