@@ -249,7 +249,15 @@ def portfolio(user_id):
     crypto_list = mycursor.fetchall()
     if crypto_list:
         for crypto in crypto_list:
-            user_data(user_id, crypto[0])
+            
+            data = user_data(user_id, crypto[0])
+            avg_buy_price, qty = float(data[5]), float(data[4])
+            price = eval(get_data(crypto[0])[0][1:].replace(',', ''))    
+            print('Current Price:', price)
+            if avg_buy_price > price:
+                print('Loss on Current holdings:', (avg_buy_price - price) * qty)
+            else:
+                print('Profit on Current holdings:', (avg_buy_price - price) * qty)
             print()
 
 def buy_crypto(user_id, crypto):
