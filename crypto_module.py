@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 import mysql.connector
 mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
 mycursor = mydb.cursor(buffered = True)
+mydb.autocommit = True
 
 def email_check(email):   
     regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
@@ -64,7 +65,6 @@ def sign_up():
     while f:
         try:
             mycursor.execute('INSERT INTO USERBASE VALUES{0}'.format(tuple(user_data)))
-            mydb.commit()
             print('Your user_id has been created, Thank You')
             f = 0
         
@@ -223,16 +223,29 @@ def predict(crypto_currency):
     plt.show()        
   
 
-def add_to_watchlist(user_id, crypto):
+def add_to_watchlist(user_id, crypto = ''):
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
-    watch = mycursor.fetchall()[0][0] 
-    if crypto not in watch:
-        watch += crypto + ' '
-        mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watch) + "WHERE (USERNAME = '{0}')".format(user_id))
-        mydb.commit()
+    watchlist = mycursor.fetchall()[0][0] 
+    if not(crypto):
+        print('Your Existing Watchlist --> ', watchlist)
+        crypto = name_format(input('Enter the Name of Cryptocurrency You want to Add to Watchlist --> '))
+    if crypto not in watchlist:
+        watchlist += crypto + ' '
+        mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watchlist) + "WHERE (USERNAME = '{0}')".format(user_id))
 
 
-def watchlist(user_id):
+def rem_from_watchlist(user_id, crypto = ''):
+    mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
+    watchlist = mycursor.fetchall()[0][0] 
+    if not(crypto):
+        print('Your Existing Watchlist --> ', watchlist)
+        crypto = name_format(input('Enter the Name of Cryptocurrency You want to Remove from Watchlist --> '))
+    if crypto in watchlist:
+        watchlist = watchlist.replace(crypto,'')
+        mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watchlist) + "WHERE (USERNAME = '{0}')".format(user_id))
+
+
+def see_watchlist(user_id):
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0].split()
     
@@ -255,10 +268,11 @@ def portfolio(user_id):
             price = eval(get_data(crypto[0])[0][1:].replace(',', ''))    
             print('Current Price:', price)
             if avg_buy_price > price:
-                print('Loss on Current holdings:', (avg_buy_price - price) * qty)
+                print('Loss on Current holdings:', (price - avg_buy_price) * qty)
             else:
-                print('Profit on Current holdings:', (avg_buy_price - price) * qty)
+                print('Profit on Current holdings:', (price - avg_buy_price) * qty)
             print()
+
 
 def buy_crypto(user_id, crypto):
     
@@ -277,20 +291,18 @@ def buy_crypto(user_id, crypto):
             balance = val - qty * price
         print('Your balance is -', balance)
         mycursor.execute("UPDATE USERBASE SET BALANCE = {0} ".format(balance) + "WHERE (USERNAME = '{0}')".format(user_id))
-        mydb.commit()
         if data:
             buy_qty, cur_qty, avg_buy_price = float(data[2]) + qty, float(data[4]) + qty, float(data[5]*data[2]) + qty*price
             avg_buy_price /= buy_qty 
-            mycursor.execute("UPDATE PORTFOLIO SET TOTAL_BOUGHT = {0}, ".format(buy_qty) + "CURRENT_QTY = {0}, ".format(cur_qty) + "AVG_BUY_PRICE = {0} ".format(avg_buy_price) + "WHERE (USER_ID = '{0}' ".format(user_id) + "AND CRYPTO_NAME = '{0})'".format(crypto))
-            mydb.commit()
+            mycursor.execute("UPDATE PORTFOLIO SET TOTAL_BOUGHT = {0}, ".format(buy_qty) + "CURRENT_QTY = {0}, ".format(cur_qty) + "AVG_BUY_PRICE = {0} ".format(avg_buy_price) + "WHERE (USER_ID = '{0}' ".format(user_id) + "AND CRYPTO_NAME = '{0}')".format(crypto))
     
         else:
             values = (user_id, crypto, qty, 0, qty, price, 0, 0)
             mycursor.execute('INSERT INTO PORTFOLIO VALUES{0}'.format(values))
-            mydb.commit()
+    
         values = (user_id, crypto, qty, price, dt[0].replace('-','/'), dt[1][:8])  
         mycursor.execute('INSERT INTO TRANSACTIONS VALUES{0}'.format(values))
-        mydb.commit() 
+         
          
     else:
         print('No coins Bought')
@@ -319,12 +331,9 @@ def sell_crypto(user_id, crypto):
              earn = (avg_sell_price - avg_buy_price)*sold_qty
              dt = str(datetime.datetime.now()).split()
              mycursor.execute("UPDATE USERBASE SET BALANCE = {0} ".format(balance) + "WHERE (USERNAME = '{0}')".format(user_id))
-             mydb.commit()
              values = (user_id, crypto, -qty, price, dt[0].replace('-','/'), dt[1][:8])  
              mycursor.execute("UPDATE PORTFOLIO SET TOTAL_SOLD = {0}, ".format(sold_qty) + "CURRENT_QTY = {0}, ".format(cur_qty) + "AVG_SELL_PRICE = {0}, ".format(avg_sell_price) +"EARNINGS = {0} ".format(earn) + "WHERE (USER_ID = '{0}' ".format(user_id) + "AND CRYPTO_NAME = '{0}')".format(crypto))
-             mydb.commit()
              mycursor.execute('INSERT INTO TRANSACTIONS VALUES{0}'.format(values))
-             mydb.commit()
              print('Your balance is:', balance)
              
     else:
@@ -336,14 +345,27 @@ def tasks(user_id):
     buy = ''
     watch = ''
     try:
-        act = int(input('What task do you want to perform: \n 1. SEE WATCHLIST \n 2. SEE PORTFOLIO \n 3. BUY \n 4. SELL \n 5. SEARCH CRYPTOCURRENCY \n--> '))
-        if act == 1:
-            watchlist(user_id)
+        act = int(input('What task do you want to perform: \n 1. SEARCH CRYPTOCURRENCY \n 2. SEE PORTFOLIO \n 3. BUY \n 4. SELL \n 5. SEE WATCHLIST \n 6. ADD TO WATCHLIST \n 7. REMOVE FROM WATCHLIST \n --> '))
         
-        if act == 2 :
+        if act == 1:
+            crypto = name_format(input('Enter the Name of Cryptocurrency --> '))
+            flag = show_data(crypto)
+            if flag:
+                buy = input('Do you want to Buy this currency(Y/N) --> ')
+                if buy in 'Yy':
+                    buy_crypto(user_id, crypto)
+                
+                mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
+                watchlist = mycursor.fetchall()[0][0] 
+                if crypto not in watchlist:
+                    watch = input('Do you want to Add this currency to Watchlist(Y/N) --> ')
+                    if watch in 'yY':
+                        add_to_watchlist(user_id, crypto)            
+        
+        elif act == 2 :
              portfolio(user_id)
              
-        if act == 3:
+        elif act == 3:
             crypto = name_format(input('Enter the Name of Cryptocurrency you want to Buy --> '))
             if get_data(crypto):    
                 buy_crypto(user_id, crypto)
@@ -355,30 +377,20 @@ def tasks(user_id):
                         add_to_watchlist(user_id, crypto)
             else:
                 print('Sorry, we could not find cryptocurrency with this name. Please re-check the spelling' )
-        
-        if act == 4:
+                
+        elif act == 4:
             crypto = name_format(input('Enter the Name of Cryptocurrency you want to Sell --> '))
             if get_data(crypto):
                 sell_crypto(user_id, crypto)
         
-        if act == 5:
-            crypto = name_format(input('Enter the Name of Cryptocurrency --> '))
-            flag = show_data(crypto)
+        elif act == 5:
+            see_watchlist(user_id)
             
-            if flag:
-                buy = input('Do you want to Buy this currency(Y/N) --> ')
-                if buy in 'Yy':
-                    buy_crypto(user_id, crypto)
-                
-                mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
-                watch = mycursor.fetchall()[0][0] 
-                if crypto not in watch:
-                    watch = input('Do you want to Add this currency to Watchlist(Y/N) --> ')
-                    if watch in 'yY':
-                        add_to_watchlist(user_id, crypto)
+        elif act == 6: 
+            add_to_watchlist(user_id)
         
-            
-       
-    
+        elif act == 7:
+            rem_from_watchlist(user_id)
+        
     except ValueError:
-        pass
+        print('The Value entered is invalid')
