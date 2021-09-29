@@ -7,6 +7,13 @@ def Create_Database_AgniCrypt():
     cursor.execute(s1)
 Create_Database_AgniCrypt()
 
+def connection():
+    import mysql.connector
+    mycon=mysql.connector.connect(host='localhost',user='root',passwd='123123',database='AgniCrypt')
+    if mycon.is_connected():
+        print("successfully connected")
+connection()
+
 def table_creation_userbase():
     import mysql.connector
     mycon=mysql.connector.connect(host='localhost',user='root',passwd='123123',database='AgniCrypt')
