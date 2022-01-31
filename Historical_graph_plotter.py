@@ -8,7 +8,9 @@ from keras.layers import Dense, LSTM
 import matplotlib.pyplot as plt
 plt.style.use('fivethirtyeight')
 
-df = web.DataReader('XRP-USD',data_source='yahoo', start='2021-01-01', end='2021-08-01')
+stock = 'BTC'
+stock = stock +'-USD'
+df = web.DataReader(stock, data_source='yahoo', start='2021-01-01', end='2021-08-01')
 plt.figure(figsize=(12,6))
 plt.title('Close price history')
 plt.plot(df['Close'])
