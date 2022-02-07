@@ -1,4 +1,3 @@
-
 import re
 import sys
 import csv
@@ -26,9 +25,8 @@ def email_check(email):
     return f   
 
         
-def sign_in():
-    user_id = input('Enter E-Mail/Username --> ')
-    password = input('Enter Password --> ')  
+def sign_in(user_id, password):
+     
     mycursor.execute("SELECT PASSWORD, USERNAME FROM USERBASE WHERE (EMAIL = '{0}') OR (USERNAME = '{0}')".format(user_id))
     pw = mycursor.fetchall()
     f = 1
@@ -41,26 +39,23 @@ def sign_in():
        print('Incorrect Credentials')
             
         
-def sign_up():
-    email = input('Enter your E-Mail --> ')
-    f = email_check(email)
-    while f:
-        print(f)
-        if f == 1:     
-            email = input('Please Enter Valid E-Mail --> ')
-        elif f == 2:
-            email = input('This Email is Already Registered, Please Enter Another E-Mail --> ')
-        f = email_check(email)
+def sign_up(user_data):
+
+    check = email_check(user_data[0])
+    
+    while check:
+        if check == 1:     
+            user_data[0] = input('Please Enter Valid E-Mail --> ')
+        elif check == 2:
+            user_data[0] = input('This Email is Already Registered, Please Enter Another E-Mail --> ')
+        check = email_check(user_data[0])
         
-    dob = input('Enter your Date of Birth (yyyy/mm/dd) --> ')
-    username = input('Create a username --> ')
-    while not(username):
-        username = input('Username cannot be blank, Create a username --> ')
-    password = input('Create a password --> ')
-    while not(password):
-        password = input('Password cannot be blank, Create a password --> ')
-        
-    user_data = [email, dob, username, password, '', 100000]
+    while not(user_data[2]):
+        user_data[2] = input('Username cannot be blank, Create a username --> ')
+
+    while not(user_data[3]):
+        user_data[3] = input('Password cannot be blank, Create a password --> ')
+    print(user_data)
     f = 1
     while f:
         try:
@@ -76,7 +71,7 @@ def sign_up():
             user_data[3] = input('Create a password --> ')
     
     return user_data[2]
-  
+    
 
 def name_format(name):
     return '-'.join(name.lower().replace('.', ' ').split())
@@ -104,16 +99,15 @@ def show_data(crypto_name):
     if x:
         
         print('Cryptocurrency:', crypto_name)
-        print('Current Price: ', x[0])
-        print('Price Change: ', x[1][0],'/', x[1][1])
-        print('24h Low: ', x[2][0])
-        print('24h High: ',x[2][1])
-        print('Trading Volume: ', x[3][0], '/', x[3][1])
-        print('Market Capitalization: ', '$' , eval(x[3][0][1:].replace(',', ''))/eval(x[4].replace(',', '')))
+        print('Current Price:', x[0])
+        print('Price Change:', x[1][0],'/', x[1][1])
+        print('24h Low:', x[2][0])
+        print('24h High:', x[2][1])
+        print('Trading Volume:', x[3][0], '/', x[3][1])
+        print('Market Capitalization: $', eval(x[3][0][1:].replace(',', ''))/eval(x[4].replace(',', '')))
         print('Market Dominance: ', x[5])
         print('Market rank: ', x[6])
         print()
-        return 1
     
     else:
         print("Sorry, we couldn't find cryptocurrency with this name. Please re-check the spelling.")
@@ -128,102 +122,14 @@ def user_data(user_id, crypto):
         print('Total Bought Quantity:', data[2])
         print('Total Sold Quantity:', data[3])
         print('Coins Left:', data[4])
-        print('Average Bought Price:', data[5])
-        print('Average Sell Price:', data[6])
-        print('Average Earnings on coins sold:', data[7])
+        print('Average Bought Price: $', data[5])
+        print('Average Sell Price:  $', data[6])
+        print('Average Earnings on coins sold:  $', data[7])
     return data
-        
-        
-def predict(crypto_currency):    
-    
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    import pandas_datareader as web
-    import datetime as dt 
-    
-    from sklearn.preprocessing import MinMaxScaler
-    from tensorflow.keras.layers import Dense, Dropout, LSTM
-    from tensorflow.keras.models import Sequential
-    
-    crypto_currency = 'ETH'
-    against_currency = 'USD'
-    
-    #This is the time frame that we will be going to teach the algorithm.
-    start = dt.datetime(2019,1,1)
-    end = dt.datetime.now()
-    
-    data = web.DataReader(f'{crypto_currency}-{against_currency}','yahoo', start, end)
-    
-    #Prepare DATA
-    scaler = MinMaxScaler(feature_range=(0,1))
-    scaled_data =  scaler.fit_transform(data['Close'].values.reshape(-1,1))
-    
-    #In this say if we are going to teach it for 40 days it will predict what the price will be after the number of future days
-    prediction_days = 40
-    
-    #Future day is telling in the graph that at the moment what the price may be after those many days
-    #If you want to know prediction of next day, set this as 1.
-    future_day = 30
-    
-    
-    x_train, y_train = [], []
-    
-    for x in range(prediction_days, len(scaled_data)-future_day):
-        x_train.append(scaled_data[x-prediction_days:x, 0])
-        y_train.append(scaled_data[x+future_day, 0])
-    
-    x_train, y_train = np.array(x_train), np.array(y_train)
-    x_train = np.reshape(x_train,(x_train.shape[0], x_train.shape[1], 1))
-    model = Sequential()
-    
-    model.add(LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1],1)))
-    model.add(Dropout(0.2))
-    model.add(LSTM(units=50, return_sequences=True))
-    model.add(Dropout(0.2))
-    model.add(LSTM(units=50))
-    model.add(Dropout(0.2))
-    model.add(Dense(units=1))
-    
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(x_train, y_train, epochs=25, batch_size=32)
-    
-    #Testing the model
-    
-    test_start = dt.datetime(2020,1,1)
-    test_end = dt.datetime.now()
-    
-    test_data = web.DataReader(f'{crypto_currency}-{against_currency}','yahoo', test_start, test_end)
-    actual_prices = test_data['Close'].values
-    
-    total_dataset = pd.concat((data['Close'], test_data['Close']), axis=0)
-    
-    model_inputs = total_dataset[len(total_dataset) -len(test_data)- prediction_days:].values
-    model_inputs = model_inputs.reshape(-1,1)
-    model_inputs = scaler.fit_transform(model_inputs)
-    
-    x_test = []
-    
-    for x in range(prediction_days, len(model_inputs)):
-        x_test.append(model_inputs[x-prediction_days:x, 0])
-    
-    x_test = np.array(x_test)
-    x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1],1))
-    
-    prediction_prices = model.predict(x_test)
-    prediction_prices = scaler.inverse_transform(prediction_prices)
-    
-    
-    plt.plot(actual_prices, color='blue', label='Actual Prices')
-    plt.plot(prediction_prices, color='red', label='Predicted Prices')
-    plt.title(f'{crypto_currency} price prediction')
-    plt.xlabel('')
-    plt.ylabel('Price')
-    plt.legend(loc='upper left')
-    plt.show()        
-  
+
 
 def add_to_watchlist(user_id, crypto = ''):
+
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0] 
     if not(crypto):
@@ -235,6 +141,7 @@ def add_to_watchlist(user_id, crypto = ''):
 
 
 def rem_from_watchlist(user_id, crypto = ''):
+
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0] 
     if not(crypto):
@@ -246,6 +153,7 @@ def rem_from_watchlist(user_id, crypto = ''):
 
 
 def see_watchlist(user_id):
+
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0].split()
     
@@ -254,6 +162,7 @@ def see_watchlist(user_id):
 
 
 def portfolio(user_id):
+
     mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     val = float(mycursor.fetchall()[0][0])
     print ('Your balance is -', val)
@@ -266,11 +175,11 @@ def portfolio(user_id):
             data = user_data(user_id, crypto[0])
             avg_buy_price, qty = float(data[5]), float(data[4])
             price = eval(get_data(crypto[0])[0][1:].replace(',', ''))    
-            print('Current Price:', price)
+            print('Current Price: $', price)
             if avg_buy_price > price:
-                print('Loss on Current holdings:', (price - avg_buy_price) * qty)
+                print('Loss on Current holdings: $', (price - avg_buy_price) * qty)
             else:
-                print('Profit on Current holdings:', (price - avg_buy_price) * qty)
+                print('Profit on Current holdings: $', (price - avg_buy_price) * qty)
             print()
 
 
@@ -278,9 +187,9 @@ def buy_crypto(user_id, crypto):
     
     mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     val = float(mycursor.fetchall()[0][0])
-    print ('Your balance is -', val)
+    print ('Your balance is: $', val)
     price = eval(get_data(crypto)[0][1:].replace(',', ''))
-    print('Current Price of each coin is - ', price)
+    print('Current Price of each coin is: $', price)
     data = user_data(user_id, crypto)
     qty = abs(eval(input('Enter Number of Coins you want to Buy --> ')))
     dt = str(datetime.datetime.now()).split()
@@ -289,7 +198,7 @@ def buy_crypto(user_id, crypto):
         while balance < 0:
             qty = eval(input('You have low balance, buy lesser quantity --> '))
             balance = val - qty * price
-        print('Your balance is -', balance)
+        print('Your balance is: $', balance)
         mycursor.execute("UPDATE USERBASE SET BALANCE = {0} ".format(balance) + "WHERE (USERNAME = '{0}')".format(user_id))
         if data:
             buy_qty, cur_qty, avg_buy_price = float(data[2]) + qty, float(data[4]) + qty, float(data[5]*data[2]) + qty*price
@@ -313,8 +222,8 @@ def sell_crypto(user_id, crypto):
     price = eval(get_data(crypto)[0][1:].replace(',', ''))    
     mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     val = float(mycursor.fetchall()[0][0])
-    print('Current Price:', price)
-    print('Your Current Balance:', val)
+    print('Current Price: $', price)
+    print('Your Current Balance: $', val)
     
     data = user_data(user_id, crypto)
     if data:
@@ -334,10 +243,10 @@ def sell_crypto(user_id, crypto):
              values = (user_id, crypto, -qty, price, dt[0].replace('-','/'), dt[1][:8])  
              mycursor.execute("UPDATE PORTFOLIO SET TOTAL_SOLD = {0}, ".format(sold_qty) + "CURRENT_QTY = {0}, ".format(cur_qty) + "AVG_SELL_PRICE = {0}, ".format(avg_sell_price) +"EARNINGS = {0} ".format(earn) + "WHERE (USER_ID = '{0}' ".format(user_id) + "AND CRYPTO_NAME = '{0}')".format(crypto))
              mycursor.execute('INSERT INTO TRANSACTIONS VALUES{0}'.format(values))
-             print('Your balance is:', balance)
+             print('Your balance is: $', balance)
              
     else:
-        print('You have not Bought this Cryptocurrency')
+        print('You have not bought this Cryptocurrency')
 
 
 def tasks(user_id):
