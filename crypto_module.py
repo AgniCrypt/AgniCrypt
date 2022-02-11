@@ -12,6 +12,7 @@ mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Prag
 mycursor = mydb.cursor(buffered = True)
 mydb.autocommit = True
 
+
 def email_check(email):   
     regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
 
@@ -55,7 +56,7 @@ def sign_up(user_data):
 
     while not(user_data[3]):
         user_data[3] = input('Password cannot be blank, Create a password --> ')
-    print(user_data)
+    
     f = 1
     while f:
         try:
@@ -132,33 +133,50 @@ def add_to_watchlist(user_id, crypto = ''):
 
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0] 
-    if not(crypto):
-        print('Your Existing Watchlist --> ', watchlist)
-        crypto = name_format(input('Enter the Name of Cryptocurrency You want to Add to Watchlist --> '))
-    if crypto not in watchlist:
+    print('Your Existing Watchlist -->', watchlist.split())
+    f = 'y'
+    
+    while not(get_data(crypto)):
+        print("Sorry, we couldn't find this cryptocurrency")
+        f = input('Do you want to add other cryptocurrency?(Y/N) --> ')
+        if f in 'Yy':
+            crypto = name_format(input('Enter the Name of Cryptocurrency You want to Add to Watchlist --> '))
+    if f in 'yY' and crypto not in watchlist:
         watchlist += crypto + ' '
         mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watchlist) + "WHERE (USERNAME = '{0}')".format(user_id))
+        print('Cryptocurrency added to watchlist')
+    elif crypto in watchlist:
+        print('This cryptocurrency is already in your watchlist')
 
 
 def rem_from_watchlist(user_id, crypto = ''):
 
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
-    watchlist = mycursor.fetchall()[0][0] 
+    watchlist = mycursor.fetchall()[0][0].split()
     if not(crypto):
         print('Your Existing Watchlist --> ', watchlist)
         crypto = name_format(input('Enter the Name of Cryptocurrency You want to Remove from Watchlist --> '))
     if crypto in watchlist:
-        watchlist = watchlist.replace(crypto,'')
-        mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watchlist) + "WHERE (USERNAME = '{0}')".format(user_id))
-
-
+        watchlist.remove(crypto)
+        watchlist_new = ''
+        for i in watchlist:
+            watchlist_new += i + ' '
+        mycursor.execute("UPDATE USERBASE SET WATCHLIST = '{0}' ".format(watchlist_new) + "WHERE (USERNAME = '{0}')".format(user_id))
+        print('Cryptocurrency removed from watchlist')
+    
+    else:
+        print('The cryptocurrency was not in your watchlist')
+        
+        
 def see_watchlist(user_id):
 
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0].split()
-    
-    for i in watchlist:
-        show_data(i)
+    if watchlist:
+        for i in watchlist:
+            show_data(i)
+    else:
+        print('Your Watchlist is empty.')
 
 
 def portfolio(user_id):
@@ -296,7 +314,7 @@ def tasks(user_id):
             see_watchlist(user_id)
             
         elif act == 6: 
-            add_to_watchlist(user_id)
+            add_to_watchlist(user_id, name_format(input('Enter the Name of Cryptocurrency You want to Add to Watchlist --> ')))
         
         elif act == 7:
             rem_from_watchlist(user_id)
