@@ -80,7 +80,7 @@ def name_format(name):
 def get_data(currency_name):
     
     import requests
-    api_key = 'c7b6b5d4-6917-400e-82e4-ab8c93c6dc57'
+    api_key = 'api-key'
     api_url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest'
     parameters = {
         'slug': currency_name,
