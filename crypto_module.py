@@ -8,14 +8,13 @@ import datetime
 import pandas
 from bs4 import BeautifulSoup
 import mysql.connector
-mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = 'Pragyaat@123', database = 'agnicrypt')
+mydb = mysql.connector.connect(host = 'localhost', user = 'root', passwd = '123123', database = 'agnicrypt')
 mycursor = mydb.cursor(buffered = True)
 mydb.autocommit = True
 
 
 def email_check(email):   
     regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
-
     mycursor.execute("SELECT USERNAME FROM USERBASE WHERE (EMAIL = '{0}')".format(email))
     taken = mycursor.fetchall()
     f = 0
@@ -80,35 +79,61 @@ def name_format(name):
 
 def get_data(currency_name):
     
-    url = 'https://coinmarketcap.com/currencies/{0}'.format(currency_name)
-    soup = BeautifulSoup(requests.get(url).text.encode('utf-8'), 'html.parser')
-    
-    try:
-        table = soup.find_all('table')[0]
-        elements = table.find_all("tr")
-        cypto_data = [i.get_text(' ').strip().split('/n')[0].split() for i in elements]
-        
-        return cypto_data[0][-1], (cypto_data[1][-3], cypto_data[1][-2] + '%'), (cypto_data[2][-3], cypto_data[2][-1]) ,(cypto_data[3][-3], cypto_data[3][-2] + '%'), cypto_data[4][-1], cypto_data[5][-2] + '%', cypto_data[6][-1]
-    
-    except IndexError:
-        pass
+    import requests
+    api_key = 'c7b6b5d4-6917-400e-82e4-ab8c93c6dc57'
+    api_url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest'
+    parameters = {
+        'slug': currency_name,
+        'convert':'USD'
+    }
 
+    headers = {
+        'Accepts': 'application/json',
+        'X-CMC_PRO_API_KEY': api_key,
+    }
+
+    # Make the API request
+    response = requests.get(api_url, headers=headers, params=parameters)
+
+    if response.status_code == 200:
+        data = response.json()['data']
+        for i in data:
+            pass
+        data = data[i]
+        name = data['name']
+        symbol = data['symbol']
+        rank = data['cmc_rank']
+        data = data['quote']['USD']
+        price = data['price']
+        volume = data['volume_24h']
+        percent_change_1h = data['percent_change_1h']
+        percent_change_24h = data['percent_change_24h']
+        percent_change_7d = data['percent_change_7d']
+        percent_change_30d = data['percent_change_30d']
+        market_cap = data['market_cap']
+        dominance = data['market_cap_dominance']
+        
+        return price, name, symbol, volume, market_cap, dominance, rank, percent_change_1h, percent_change_24h, percent_change_7d, percent_change_30d
 
 def show_data(crypto_name):
    
     x = get_data(crypto_name)
     if x:
         
-        print('Cryptocurrency:', crypto_name)
-        print('Current Price:', x[0])
-        print('Price Change:', x[1][0],'/', x[1][1])
-        print('24h Low:', x[2][0])
-        print('24h High:', x[2][1])
-        print('Trading Volume:', x[3][0], '/', x[3][1])
-        print('Market Capitalization: $', eval(x[3][0][1:].replace(',', ''))/eval(x[4].replace(',', '')))
+        print('Cryptocurrency:', x[1])
+        print('Symbol:', x[2])
+        print('Current Price: $', x[0])
+        print('Volume(24h):', x[3])
+        print('Market Capitalization: $', x[4])
         print('Market Dominance: ', x[5])
         print('Market rank: ', x[6])
+        print('Percent Change(1h)', x[7])
+        print('Percent Change(24h)', x[8])
+        print('Percent Change(7d)', x[9])
+        print('Percent Change(30d)', x[10])
         print()
+        
+        return x[0]
     
     else:
         print("Sorry, we couldn't find cryptocurrency with this name. Please re-check the spelling.")
@@ -130,7 +155,8 @@ def user_data(user_id, crypto):
 
 
 def add_to_watchlist(user_id, crypto = ''):
-
+    
+    
     mycursor.execute("SELECT WATCHLIST FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     watchlist = mycursor.fetchall()[0][0] 
     print('Your Existing Watchlist -->', watchlist.split())
@@ -192,8 +218,8 @@ def portfolio(user_id):
             
             data = user_data(user_id, crypto[0])
             avg_buy_price, qty = float(data[5]), float(data[4])
-            price = eval(get_data(crypto[0])[0][1:].replace(',', ''))    
-            print('Current Price: $', price)
+            price = show_data(crypto[0])
+
             if avg_buy_price > price:
                 print('Loss on Current holdings: $', (price - avg_buy_price) * qty)
             else:
@@ -206,8 +232,8 @@ def buy_crypto(user_id, crypto):
     mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     val = float(mycursor.fetchall()[0][0])
     print ('Your balance is: $', val)
-    price = eval(get_data(crypto)[0][1:].replace(',', ''))
-    print('Current Price of each coin is: $', price)
+    price = show_data(crypto)
+
     data = user_data(user_id, crypto)
     qty = abs(eval(input('Enter Number of Coins you want to Buy --> ')))
     dt = str(datetime.datetime.now()).split()
@@ -237,10 +263,9 @@ def buy_crypto(user_id, crypto):
 
 def sell_crypto(user_id, crypto):
    
-    price = eval(get_data(crypto)[0][1:].replace(',', ''))    
+    price = show_data(crypto) 
     mycursor.execute("SELECT BALANCE FROM USERBASE WHERE (USERNAME = '{0}')".format(user_id))
     val = float(mycursor.fetchall()[0][0])
-    print('Current Price: $', price)
     print('Your Current Balance: $', val)
     
     data = user_data(user_id, crypto)
@@ -314,7 +339,7 @@ def tasks(user_id):
             see_watchlist(user_id)
             
         elif act == 6: 
-            add_to_watchlist(user_id, name_format(input('Enter the Name of Cryptocurrency You want to Add to Watchlist --> ')))
+            add_to_watchlist(user_id)
         
         elif act == 7:
             rem_from_watchlist(user_id)
